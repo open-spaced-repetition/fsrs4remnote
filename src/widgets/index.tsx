@@ -1,8 +1,236 @@
-import { declareIndexPlugin, ReactRNPlugin, WidgetLocation } from '@remnote/plugin-sdk';
+import { Card, declareIndexPlugin, QueueInteractionScore, ReactRNPlugin } from '@remnote/plugin-sdk';
 import '../style.css';
 import '../App.css';
+import { defaultParameters } from '../lib/parameters';
+import {SchedulerParam} from '../lib/consts';
 
 async function onActivate(plugin: ReactRNPlugin) {
+  await plugin.scheduler.registerCustomScheduler(
+    "FSRS4RemNote",
+    defaultParameters
+  )
+}
+
+async function getNextSpacingDate(
+  plugin: ReactRNPlugin,
+  cardId: string,
+  score: QueueInteractionScore,
+) {
+  const card = await plugin.card.findOne(cardId);
+  if (!card) {
+    return;
+  }
+  const history = card.repetitionHistory || [];
+  const customData = history[history.length - 1].pluginData;
+  const rem = await plugin.rem.findOne(card?.remId);
+  const {
+    [SchedulerParam.Weights]: w,
+    [SchedulerParam.RequestRetention]: requestRetention,
+    [SchedulerParam.MaximumInterval]: maximumInterval,
+    [SchedulerParam.EasyBonus]: easyBonus,
+    [SchedulerParam.HardInterval]: hardInterval,
+    [SchedulerParam.Ratings]: ratings,
+    [SchedulerParam.Fuzz]: enable_fuzz,
+    [SchedulerParam.AgainRating]: againInterval,
+    [SchedulerParam.HardRating]: hardRating,
+    [SchedulerParam.GoodRating]: goodRating,
+    [SchedulerParam.EasyRating]: easyRating,
+  } = await plugin.scheduler.getSchedulerParamsForRem(rem._id);
+
+  
+  // auto-calculate intervalModifier
+  const intervalModifier = Math.log(requestRetention) / Math.log(0.9);
+  // global fuzz factor for all ratings.
+  const fuzz_factor = Math.random();
+
+  // For new cards
+  if (is_new()) {
+    init_states();
+    states.easy.normal.review.scheduledDays = next_interval(customData.easy.s);
+    // For learning/relearning cards
+  } else if (is_learning()) {
+    // Init states if the card didn't contain customData
+    if (is_empty()) {
+      init_states();
+    }
+    const good_interval = next_interval(customData.good.s);
+    const easy_interval = Math.max(next_interval(customData.easy.s * easyBonus), good_interval + 1);
+    if (states.good.normal?.review) {
+      states.good.normal.review.scheduledDays = good_interval;
+    }
+    if (states.easy.normal?.review) {
+      states.easy.normal.review.scheduledDays = easy_interval;
+    }
+    // For review cards
+  } else if (is_review()) {
+    // Convert the interval and factor to stability and difficulty if the card didn't contain customData
+    if (is_empty()) {
+      convert_states();
+    }
+
+    const interval = states.current.normal?.review.elapsedDays ? states.current.normal.review.elapsedDays : states.current.filtered.rescheduling.originalState.review.elapsedDays;
+    const last_d = customData.again.d;
+    const last_s = customData.again.s;
+    const retrievability = Math.exp(Math.log(0.9) * interval / last_s);
+    const lapses = states.again.normal?.relearning.review.lapses ? states.again.normal.relearning.review.lapses : states.again.filtered.rescheduling.originalState.relearning.review.lapses;
+
+    customData.again.d = next_difficulty(last_d, "again");
+    customData.again.s = next_forget_stability(customData.again.d, last_s, retrievability);
+
+    customData.hard.d = next_difficulty(last_d, "hard");
+    customData.hard.s = next_recall_stability(customData.hard.d, last_s, retrievability);
+
+    customData.good.d = next_difficulty(last_d, "good");
+    customData.good.s = next_recall_stability(customData.good.d, last_s, retrievability);
+
+    customData.easy.d = next_difficulty(last_d, "easy");
+    customData.easy.s = next_recall_stability(customData.easy.d, last_s, retrievability);
+
+    let hard_interval = next_interval(last_s * hardInterval);
+    let good_interval = next_interval(customData.good.s);
+    let easy_interval = next_interval(customData.easy.s * easyBonus)
+      hard_interval = Math.min(hard_interval, good_interval)
+      good_interval = Math.max(good_interval, hard_interval + 1);
+    easy_interval = Math.max(easy_interval, good_interval + 1);
+
+    if (states.hard.normal?.review) {
+      states.hard.normal.review.scheduledDays = hard_interval;
+    }
+    if (states.good.normal?.review) {
+      states.good.normal.review.scheduledDays = good_interval;
+    }
+    if (states.easy.normal?.review) {
+      states.easy.normal.review.scheduledDays = easy_interval;
+    }
+  }
+
+  function constrain_difficulty(difficulty) {
+    return Math.min(Math.max(difficulty.toFixed(2), 1), 10);
+  }
+
+  function apply_fuzz(ivl) {
+    if (!enable_fuzz || ivl < 2.5) return ivl;
+    ivl = Math.round(ivl);
+    const min_ivl = Math.max(2, Math.round(ivl * 0.95 - 1));
+    const max_ivl = Math.round(ivl * 1.05 + 1);
+    return Math.floor(fuzz_factor * (max_ivl - min_ivl + 1) + min_ivl);
+  }
+
+  function next_interval(stability) {
+    const new_interval = apply_fuzz(stability * intervalModifier);
+    return Math.min(Math.max(Math.round(new_interval), 1), maximumInterval);
+  }
+
+  function next_difficulty(d, rating) {
+    let next_d = d + w[4] * (ratings[rating] - 3);
+    return constrain_difficulty(mean_reversion(w[2], next_d));
+  }
+
+  function mean_reversion(init, current) {
+    return w[5] * init + (1 - w[5]) * current;
+  }
+
+  function next_recall_stability(d, s, r) {
+    return +(s * (1 + Math.exp(w[6]) *
+          (11 - d) *
+          Math.pow(s, w[7]) *
+          (Math.exp((1 - r) * w[8]) - 1))).toFixed(2);
+  }
+
+  function next_forget_stability(d, s, r) {
+    return +(w[9] * Math.pow(d, w[10]) * Math.pow(
+          s, w[11]) * Math.exp((1 - r) * w[12])).toFixed(2);
+  }
+
+  function init_states() {
+    customData.again.d = init_difficulty("again");
+    customData.again.s = init_stability("again");
+    customData.hard.d = init_difficulty("hard");
+    customData.hard.s = init_stability("hard");
+    customData.good.d = init_difficulty("good");
+    customData.good.s = init_stability("good");
+    customData.easy.d = init_difficulty("easy");
+    customData.easy.s = init_stability("easy");
+  }
+
+  function init_difficulty(rating) {
+    return +constrain_difficulty(w[2] + w[3] * (ratings[rating] - 3)).toFixed(2);
+  }
+
+  function init_stability(rating) {
+    return +Math.max(w[0] + w[1] * (ratings[rating] - 1), 0.1).toFixed(2);
+  }
+
+  function convert_states() {
+    const scheduledDays = states.current.normal ? states.current.normal.review.scheduledDays : states.current.filtered.rescheduling.originalState.review.scheduledDays;
+    const easeFactor = states.current.normal ? states.current.normal.review.easeFactor : states.current.filtered.rescheduling.originalState.review.easeFactor;
+    const old_s = +Math.max(scheduledDays, 0.1).toFixed(2);
+    const old_d = constrain_difficulty(11 - (easeFactor - 1) / (Math.exp(w[6]) * Math.pow(old_s, w[7]) * (Math.exp(0.1 * w[8]) - 1)))
+      customData.again.d = old_d;
+    customData.again.s = old_s;
+    customData.hard.d = old_d;
+    customData.hard.s = old_s;
+    customData.good.d = old_d;
+    customData.good.s = old_s;
+    customData.easy.d = old_d;
+    customData.easy.s = old_s;
+  }
+
+  function is_new() {
+    if (states.current.normal?.new !== undefined) {
+      if (states.current.normal?.new !== null) {
+        return true;
+      }
+    }
+    if (states.current.filtered?.rescheduling?.originalState !== undefined) {
+      if (Object.hasOwn(states.current.filtered?.rescheduling?.originalState, 'new')) {
+        return true;
+      }
+    } 
+    return false;
+  }
+
+  function is_learning() {
+    if (states.current.normal?.learning !== undefined) {
+      if (states.current.normal?.learning !== null) {
+        return true;
+      }
+    }
+    if (states.current.filtered?.rescheduling?.originalState !== undefined) {
+      if (Object.hasOwn(states.current.filtered?.rescheduling?.originalState, 'learning')) {
+        return true;
+      }
+    }
+    if (states.current.normal?.relearning !== undefined) {
+      if (states.current.normal?.relearning !== null) {
+        return true;
+      }
+    }
+    if (states.current.filtered?.rescheduling?.originalState !== undefined) {
+      if (Object.hasOwn(states.current.filtered?.rescheduling?.originalState, 'relearning')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function is_review() {
+    if (states.current.normal?.review !== undefined) {
+      if (states.current.normal?.review !== null) {
+        return true;
+      }
+    }
+    if (states.current.filtered?.rescheduling?.originalState !== undefined) {
+      if (Object.hasOwn(states.current.filtered?.rescheduling?.originalState, 'review')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function is_empty() {
+    return !customData.again.d | !customData.again.s | !customData.hard.d | !customData.hard.s | !customData.good.d | !customData.good.s | !customData.easy.d | !customData.easy.s;
+  }
 }
 
 async function onDeactivate(_: ReactRNPlugin) {}
