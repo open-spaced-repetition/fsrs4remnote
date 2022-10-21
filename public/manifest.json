@@ -1,17 +1,17 @@
 {
   "manifestVersion": 1,
-  "id": "plugin_template",
-  "name": "Plugin Template",
-  "author": "remnote",
-  "repoUrl": "",
+  "id": "fsrs4remnote",
+  "name": "FSRS4RemNote",
+  "author": "Jarrett Ye",
+  "repoUrl": "https://github.com/open-spaced-repetition/fsrs4remnote",
   "version": {
     "major": 0,
     "minor": 0,
     "patch": 1
   },
   "theme": [],
-  "enableOnMobile": false,
-  "description": "",
+  "enableOnMobile": true,
+  "description": "A custom scheduler plugin implementing the Free Spaced Repetition Scheduler algorithm based on a variant of the DSR (Difficulty, Stability, Retrievability) model.",
   "requestNative": false,
   "requiredScopes": [
     {
