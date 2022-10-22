@@ -1,47 +1,98 @@
-import { Card, declareIndexPlugin, QueueInteractionScore, ReactRNPlugin } from '@remnote/plugin-sdk';
+import { declareIndexPlugin, QueueInteractionScore, ReactRNPlugin } from '@remnote/plugin-sdk';
 import '../style.css';
 import '../App.css';
-import { defaultParameters } from '../lib/parameters';
+import { defaultParameters, SchedulerParameterTypes } from '../lib/parameters';
 import {SchedulerParam} from '../lib/consts';
 
 async function onActivate(plugin: ReactRNPlugin) {
   await plugin.scheduler.registerCustomScheduler(
     "FSRS4RemNote",
-    defaultParameters
+    Object.values(defaultParameters)
   )
+}
+
+interface CustomData {
+  again: {
+    d: number
+    s: number 
+  },
+  hard: {
+    d: number
+    s: number
+  },
+  good: {
+    d: number
+    s: number
+  },
+  easy: {
+    d: number
+    s: number
+  }
 }
 
 async function getNextSpacingDate(
   plugin: ReactRNPlugin,
   cardId: string,
   score: QueueInteractionScore,
+  schedulerParams: Record<string, unknown>,
 ) {
   const card = await plugin.card.findOne(cardId);
   if (!card) {
     return;
   }
   const history = card.repetitionHistory || [];
-  const customData = history[history.length - 1].pluginData;
-  const rem = await plugin.rem.findOne(card?.remId);
+  const lastRep = history[history.length - 1]
+  const customData: CustomData = {...lastRep ? lastRep.pluginData : create_init_custom_data()}
   const {
-    [SchedulerParam.Weights]: w,
+    [SchedulerParam.Weights]: weightsStr,
     [SchedulerParam.RequestRetention]: requestRetention,
     [SchedulerParam.MaximumInterval]: maximumInterval,
     [SchedulerParam.EasyBonus]: easyBonus,
     [SchedulerParam.HardInterval]: hardInterval,
-    [SchedulerParam.Ratings]: ratings,
     [SchedulerParam.Fuzz]: enable_fuzz,
-    [SchedulerParam.AgainRating]: againInterval,
+    [SchedulerParam.AgainRating]: againRating,
     [SchedulerParam.HardRating]: hardRating,
     [SchedulerParam.GoodRating]: goodRating,
     [SchedulerParam.EasyRating]: easyRating,
-  } = await plugin.scheduler.getSchedulerParamsForRem(rem._id);
+  } = schedulerParams as SchedulerParameterTypes;
 
+  const ratings = {
+    "again": againRating,
+    "hard": hardRating,
+    "good": goodRating,
+    "easy": easyRating,
+  };
+
+  const w = weightsStr.split(', ').map(x => Number(x));
   
   // auto-calculate intervalModifier
   const intervalModifier = Math.log(requestRetention) / Math.log(0.9);
   // global fuzz factor for all ratings.
   const fuzz_factor = Math.random();
+
+  let states = {
+    good: {
+      normal: {
+        review: {
+          scheduledDays: 0
+        }
+      }
+    },
+    easy: {
+      normal: {
+        review: {
+          scheduledDays: 0
+        }
+      }
+    },
+    hard: {
+      normal: {
+        review: {
+          scheduledDays: 0
+        }
+      }
+    }
+  }
 
   // For new cards
   if (is_new()) {
@@ -72,6 +123,7 @@ async function getNextSpacingDate(
     const last_d = customData.again.d;
     const last_s = customData.again.s;
     const retrievability = Math.exp(Math.log(0.9) * interval / last_s);
+    // TODO: lapses = times wrong in a row? Or just number of times failed?
     const lapses = states.again.normal?.relearning.review.lapses ? states.again.normal.relearning.review.lapses : states.again.filtered.rescheduling.originalState.relearning.review.lapses;
 
     customData.again.d = next_difficulty(last_d, "again");
@@ -89,8 +141,8 @@ async function getNextSpacingDate(
     let hard_interval = next_interval(last_s * hardInterval);
     let good_interval = next_interval(customData.good.s);
     let easy_interval = next_interval(customData.easy.s * easyBonus)
-      hard_interval = Math.min(hard_interval, good_interval)
-      good_interval = Math.max(good_interval, hard_interval + 1);
+    hard_interval = Math.min(hard_interval, good_interval)
+    good_interval = Math.max(good_interval, hard_interval + 1);
     easy_interval = Math.max(easy_interval, good_interval + 1);
 
     if (states.hard.normal?.review) {
@@ -104,11 +156,11 @@ async function getNextSpacingDate(
     }
   }
 
-  function constrain_difficulty(difficulty) {
+  function constrain_difficulty(difficulty: number) {
     return Math.min(Math.max(difficulty.toFixed(2), 1), 10);
   }
 
-  function apply_fuzz(ivl) {
+  function apply_fuzz(ivl: number) {
     if (!enable_fuzz || ivl < 2.5) return ivl;
     ivl = Math.round(ivl);
     const min_ivl = Math.max(2, Math.round(ivl * 0.95 - 1));
@@ -116,28 +168,28 @@ async function getNextSpacingDate(
     return Math.floor(fuzz_factor * (max_ivl - min_ivl + 1) + min_ivl);
   }
 
-  function next_interval(stability) {
+  function next_interval(stability: number) {
     const new_interval = apply_fuzz(stability * intervalModifier);
     return Math.min(Math.max(Math.round(new_interval), 1), maximumInterval);
   }
 
-  function next_difficulty(d, rating) {
+  function next_difficulty(d: number, rating: keyof typeof ratings) {
     let next_d = d + w[4] * (ratings[rating] - 3);
     return constrain_difficulty(mean_reversion(w[2], next_d));
   }
 
-  function mean_reversion(init, current) {
+  function mean_reversion(init: number, current: number) {
     return w[5] * init + (1 - w[5]) * current;
   }
 
-  function next_recall_stability(d, s, r) {
+  function next_recall_stability(d: number, s: number, r: number) {
     return +(s * (1 + Math.exp(w[6]) *
           (11 - d) *
           Math.pow(s, w[7]) *
           (Math.exp((1 - r) * w[8]) - 1))).toFixed(2);
   }
 
-  function next_forget_stability(d, s, r) {
+  function next_forget_stability(d: number, s: number, r: number) {
     return +(w[9] * Math.pow(d, w[10]) * Math.pow(
           s, w[11]) * Math.exp((1 - r) * w[12])).toFixed(2);
   }
@@ -153,11 +205,32 @@ async function getNextSpacingDate(
     customData.easy.s = init_stability("easy");
   }
 
-  function init_difficulty(rating) {
+  function create_init_custom_data(): CustomData {
+    return {
+      again: {
+        d: init_difficulty("again"),
+        s: init_stability("again"),
+      },
+      hard: {
+        d: init_difficulty("hard"),
+        s: init_stability("hard"),
+      },
+      good: {
+        d: init_difficulty("good"),
+        s: init_stability("good"),
+      },
+      easy: {
+        d: init_difficulty("easy"),
+        s: init_stability("easy"),
+      }
+    }
+  }
+
+  function init_difficulty(rating: keyof typeof ratings) {
     return +constrain_difficulty(w[2] + w[3] * (ratings[rating] - 3)).toFixed(2);
   }
 
-  function init_stability(rating) {
+  function init_stability(rating: keyof typeof ratings) {
     return +Math.max(w[0] + w[1] * (ratings[rating] - 1), 0.1).toFixed(2);
   }
 
@@ -177,59 +250,28 @@ async function getNextSpacingDate(
   }
 
   function is_new() {
-    if (states.current.normal?.new !== undefined) {
-      if (states.current.normal?.new !== null) {
-        return true;
-      }
-    }
-    if (states.current.filtered?.rescheduling?.originalState !== undefined) {
-      if (Object.hasOwn(states.current.filtered?.rescheduling?.originalState, 'new')) {
-        return true;
-      }
-    } 
-    return false;
+    return history.length == 0;
   }
 
   function is_learning() {
-    if (states.current.normal?.learning !== undefined) {
-      if (states.current.normal?.learning !== null) {
-        return true;
-      }
-    }
-    if (states.current.filtered?.rescheduling?.originalState !== undefined) {
-      if (Object.hasOwn(states.current.filtered?.rescheduling?.originalState, 'learning')) {
-        return true;
-      }
-    }
-    if (states.current.normal?.relearning !== undefined) {
-      if (states.current.normal?.relearning !== null) {
-        return true;
-      }
-    }
-    if (states.current.filtered?.rescheduling?.originalState !== undefined) {
-      if (Object.hasOwn(states.current.filtered?.rescheduling?.originalState, 'relearning')) {
-        return true;
-      }
-    }
-    return false;
+    // TODO: currentIvl > learning threshhold && < review threshhold
+    // return 
   }
 
   function is_review() {
-    if (states.current.normal?.review !== undefined) {
-      if (states.current.normal?.review !== null) {
-        return true;
-      }
-    }
-    if (states.current.filtered?.rescheduling?.originalState !== undefined) {
-      if (Object.hasOwn(states.current.filtered?.rescheduling?.originalState, 'review')) {
-        return true;
-      }
-    }
-    return false;
+    // TODO: currentIvl > threshhold?
+    // return 
   }
 
   function is_empty() {
-    return !customData.again.d | !customData.again.s | !customData.hard.d | !customData.hard.s | !customData.good.d | !customData.good.s | !customData.easy.d | !customData.easy.s;
+    return customData.again.d == null
+      || customData.again.s == null
+      || customData.hard.d == null
+      || customData.hard.s == null
+      || customData.good.d == null
+      || customData.good.s == null
+      || customData.easy.d == null 
+      || customData.easy.s == null
   }
 }
 
