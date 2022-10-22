@@ -4,7 +4,6 @@ export enum SchedulerParam {
   MaximumInterval = "Maximum Interval",
   EasyBonus = "Easy Bonus",
   HardInterval = "Hard Interval",
-  Ratings = "Ratings",
   Fuzz = "Fuzz",
   AgainRating = "Again Rating",
   HardRating = "Hard Rating",
