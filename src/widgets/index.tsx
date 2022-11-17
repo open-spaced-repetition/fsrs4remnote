@@ -40,7 +40,7 @@ async function onActivate(plugin: ReactRNPlugin) {
   }) {
     const {history, schedulerParameters} = args;
     const lastRep = history[history.length - 1]
-    return { nextDate: new Date().getTime(), customData: {"hello": "world"} }
+    return { nextDate: new Date().getTime(), pluginData: {"hello": "world"} }
     const customData: CustomData = {
       ...lastRep
         ? lastRep.customData as CustomData

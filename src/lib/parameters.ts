@@ -5,12 +5,12 @@ export const defaultParameters = {
     id: SchedulerParam.Weights,
     title: SchedulerParam.Weights,
     defaultValue: "1, 1, 5, -0.5, -0.5, 0.2, 1.4, -0.12, 0.8, 2, -0.2, 0.2, 1",
-    description: "Weights created by running the FSRS optimizer. By default these are weights computed from a sample dataset. You can create weights tuned to your own knowledge base by running your repetition history through the FSRS optimizer.",
+    description: "Weights created by running the FSRS optimizer. By default these are weights computed from a sample dataset. Coming soon: You will be able to create weights tuned to your own knowledge base by running your repetition history through the FSRS optimizer.",
     type: 'string' as const,
     validators: [
       {
         type: "regex" as const,
-        arg: '/^-?\d+\.?\d*(?:, -?\d+\.?\d*){12}$/',
+        arg: '^-?\\d+\\.?\\d*(?:, -?\\d+\\.?\\d*){12}$',
       },
     ]
   },
@@ -25,7 +25,7 @@ export const defaultParameters = {
     id: SchedulerParam.RequestRetention,
     title: SchedulerParam.RequestRetention,
     defaultValue: 0.9,
-    description: "Represents the probability of recall you want to target. Note that there is a tradeoff between higher retention and higher number of repetitions. It is recommended to set this value somewhere between 0.8 and 0.9.",
+    description: "Represents the probability of recall you want to target. Note that there is a tradeoff between higher retention and higher number of repetitions. It is recommended that you set this value somewhere between 0.8 and 0.9.",
     type: 'number' as const,
     validators: [
       {
@@ -84,7 +84,7 @@ export const defaultParameters = {
     id: SchedulerParam.AgainRating,
     title: SchedulerParam.AgainRating,
     defaultValue: 1,
-    description: `The score used to calculate the next repetition invertal when you press the "Again" answer button`,
+    description: `The score used to calculate the next repetition interval when you press the "Again" answer button`,
     type: 'number' as const,
     validators: [
       {
@@ -97,7 +97,7 @@ export const defaultParameters = {
     id: SchedulerParam.HardRating,
     title: SchedulerParam.HardRating,
     defaultValue: 2,
-    description: `The score used to calculate the next repetition invertal when you press the "Hard" answer button`,
+    description: `The score used to calculate the next repetition interval when you press the "Hard" answer button`,
     type: 'number' as const,
     validators: [
       {
@@ -110,7 +110,7 @@ export const defaultParameters = {
     id: SchedulerParam.GoodRating,
     title: SchedulerParam.GoodRating,
     defaultValue: 3,
-    description: `The score used to calculate the next repetition invertal when you press the "Good" answer button`,
+    description: `The score used to calculate the next repetition interval when you press the "Good" answer button`,
     type: 'number' as const,
     validators: [
       {
@@ -123,7 +123,7 @@ export const defaultParameters = {
     id: SchedulerParam.EasyRating,
     title: SchedulerParam.EasyRating,
     defaultValue: 4,
-    description: `The score used to calculate the next repetition invertal when you press the "Easy" answer button`,
+    description: `The score used to calculate the next repetition interval when you press the "Easy" answer button`,
     type: 'number' as const,
     validators: [
       {
@@ -136,7 +136,7 @@ export const defaultParameters = {
     id: SchedulerParam.EasyRating,
     title: SchedulerParam.EasyRating,
     defaultValue: 4,
-    description: `The score used to calculate the next repetition invertal when you press the "Easy" answer button`,
+    description: `The score used to calculate the next repetition interval when you press the "Easy" answer button`,
     type: 'number' as const,
     validators: [
       {
