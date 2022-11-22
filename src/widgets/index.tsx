@@ -1,4 +1,4 @@
-import { declareIndexPlugin, ReactRNPlugin, RepetitionStatus, SpecialPluginCallback } from '@remnote/plugin-sdk';
+import { declareIndexPlugin, QueueInteractionScore, ReactRNPlugin, RepetitionStatus, SpecialPluginCallback } from '@remnote/plugin-sdk';
 import '../style.css';
 import '../App.css';
 import { defaultParameters, SchedulerParameterTypes } from '../lib/parameters';
@@ -40,12 +40,7 @@ async function onActivate(plugin: ReactRNPlugin) {
   }) {
     const {history, schedulerParameters} = args;
     const lastRep = history[history.length - 1]
-    return { nextDate: new Date().getTime(), pluginData: {"hello": "world"} }
-    const customData: CustomData = {
-      ...lastRep
-        ? lastRep.customData as CustomData
-        : create_init_custom_data()
-    }
+
     const {
       [SchedulerParam.Weights]: weightsStr,
       [SchedulerParam.RequestRetention]: requestRetention,
@@ -59,6 +54,8 @@ async function onActivate(plugin: ReactRNPlugin) {
       [SchedulerParam.EasyRating]: easyRating,
     } = schedulerParameters as SchedulerParameterTypes;
 
+    const w = weightsStr.split(', ').map(x => Number(x));
+
     const ratings = {
       "again": againRating,
       "hard": hardRating,
@@ -66,7 +63,23 @@ async function onActivate(plugin: ReactRNPlugin) {
       "easy": easyRating,
     };
 
-    const w = weightsStr.split(', ').map(x => Number(x));
+    const customData: CustomData = {
+      ...lastRep
+        ? lastRep.customData as CustomData
+        : create_init_custom_data()
+    }
+
+    const convertedScore =
+      lastRep.score === QueueInteractionScore.AGAIN ? ratings["again"]
+    : lastRep.score === QueueInteractionScore.HARD ? ratings["hard"]
+    : lastRep.score === QueueInteractionScore.GOOD ? ratings["good"]
+    : lastRep.score === QueueInteractionScore.EASY ? ratings["easy"]
+    : null!
+
+    const day = new Date(lastRep.date);
+    day.setDate(day.getDate() + ((history.length * history.length) ^ convertedScore));
+    const time =  day.getTime();
+    return { nextDate: time, pluginData: {"hello": "world"} }
     
     // auto-calculate intervalModifier
     const intervalModifier = Math.log(requestRetention) / Math.log(0.9);
