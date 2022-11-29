@@ -65,7 +65,7 @@ async function onActivate(plugin: ReactRNPlugin) {
 
     const customData: CustomData = {
       ...lastRep
-        ? lastRep.customData as CustomData
+        ? lastRep.pluginData as CustomData
         : create_init_custom_data()
     }
 
