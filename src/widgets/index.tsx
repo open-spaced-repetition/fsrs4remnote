@@ -4,24 +4,26 @@ import '../App.css';
 import { defaultParameters, SchedulerParameterTypes } from '../lib/parameters';
 import {SchedulerParam} from '../lib/consts';
 
-interface CustomData {
-  again: {
-    d: number
-    s: number 
-  },
-  hard: {
-    d: number
-    s: number
-  },
-  good: {
-    d: number
-    s: number
-  },
-  easy: {
-    d: number
-    s: number
-  }
+enum Rating {
+  Again = 0,
+  Hard,
+  Good,
+  Easy,
 }
+
+enum Stage {
+  New = 0,
+  Learning,
+  Review,
+  Relearning,
+}
+
+interface CustomData {
+  difficulty: number,
+  stability: number,
+  stage: Stage,
+}
+
 
 async function onActivate(plugin: ReactRNPlugin) {
   await plugin.scheduler.registerCustomScheduler(
@@ -39,7 +41,8 @@ async function onActivate(plugin: ReactRNPlugin) {
     schedulerParameters: Record<string, unknown>,
   }) {
     const {history, schedulerParameters} = args;
-    const lastRep = history[history.length - 1]
+    const lastRep = history[history.length - 1];
+    console.log(args)
 
     const {
       [SchedulerParam.Weights]: weightsStr,
@@ -55,125 +58,67 @@ async function onActivate(plugin: ReactRNPlugin) {
     } = schedulerParameters as SchedulerParameterTypes;
 
     const w = weightsStr.split(', ').map(x => Number(x));
-
-    const ratings = {
-      "again": againRating,
-      "hard": hardRating,
-      "good": goodRating,
-      "easy": easyRating,
-    };
-
-    const customData: CustomData = {
-      ...lastRep
-        ? lastRep.customData as CustomData
-        : create_init_custom_data()
-    }
-
-    const convertedScore =
-      lastRep.score === QueueInteractionScore.AGAIN ? ratings["again"]
-    : lastRep.score === QueueInteractionScore.HARD ? ratings["hard"]
-    : lastRep.score === QueueInteractionScore.GOOD ? ratings["good"]
-    : lastRep.score === QueueInteractionScore.EASY ? ratings["easy"]
-    : null!
-
-    const day = new Date(lastRep.date);
-    day.setDate(day.getDate() + ((history.length * history.length) ^ convertedScore));
-    const time =  day.getTime();
-    return { nextDate: time, pluginData: {"hello": "world"} }
-    
-    // auto-calculate intervalModifier
     const intervalModifier = Math.log(requestRetention) / Math.log(0.9);
-    // global fuzz factor for all ratings.
     const fuzz_factor = Math.random();
 
-    let states = {
-      good: {
-        normal: {
-          review: {
-            scheduledDays: 0
-          }
-        }
-      },
-      easy: {
-        normal: {
-          review: {
-            scheduledDays: 0
-          }
-        }
-      },
-      hard: {
-        normal: {
-          review: {
-            scheduledDays: 0
-          }
-        }
-      }
+    const customData: CustomData = {
+      ...history.length>1 && Object.hasOwn(history[history.length - 2], "pluginData")
+        ? history[history.length - 2].pluginData as CustomData
+        : create_init_custom_data(history)
     }
+    console.log(customData)
 
-    // For new cards
-    if (is_new()) {
-      init_states();
-      states.easy.normal.review.scheduledDays = next_interval(customData.easy.s);
-      // For learning/relearning cards
-    } else if (is_learning()) {
-      // Init states if the card didn't contain customData
-      if (is_empty()) {
-        init_states();
-      }
-      const good_interval = next_interval(customData.good.s);
-      const easy_interval = Math.max(next_interval(customData.easy.s * easyBonus), good_interval + 1);
-      if (states.good.normal?.review) {
-        states.good.normal.review.scheduledDays = good_interval;
-      }
-      if (states.easy.normal?.review) {
-        states.easy.normal.review.scheduledDays = easy_interval;
-      }
-      // For review cards
-    } else if (is_review()) {
-      // Convert the interval and factor to stability and difficulty if the card didn't contain customData
-      if (is_empty()) {
-        convert_states();
-      }
+    const convertedScore =
+      lastRep.score === QueueInteractionScore.AGAIN ? Rating.Again
+    : lastRep.score === QueueInteractionScore.HARD ? Rating.Hard
+    : lastRep.score === QueueInteractionScore.GOOD ? Rating.Good
+    : lastRep.score === QueueInteractionScore.EASY ? Rating.Easy
+    : null!;
 
-      const interval = states.current.normal?.review.elapsedDays ? states.current.normal.review.elapsedDays : states.current.filtered.rescheduling.originalState.review.elapsedDays;
-      const last_d = customData.again.d;
-      const last_s = customData.again.s;
-      const retrievability = Math.exp(Math.log(0.9) * interval / last_s);
-      // TODO: lapses = times wrong in a row? Or just number of times failed?
-      const lapses = states.again.normal?.relearning.review.lapses ? states.again.normal.relearning.review.lapses : states.again.filtered.rescheduling.originalState.relearning.review.lapses;
-
-      customData.again.d = next_difficulty(last_d, "again");
-      customData.again.s = next_forget_stability(customData.again.d, last_s, retrievability);
-
-      customData.hard.d = next_difficulty(last_d, "hard");
-      customData.hard.s = next_recall_stability(customData.hard.d, last_s, retrievability);
-
-      customData.good.d = next_difficulty(last_d, "good");
-      customData.good.s = next_recall_stability(customData.good.d, last_s, retrievability);
-
-      customData.easy.d = next_difficulty(last_d, "easy");
-      customData.easy.s = next_recall_stability(customData.easy.d, last_s, retrievability);
-
-      let hard_interval = next_interval(last_s * hardInterval);
-      let good_interval = next_interval(customData.good.s);
-      let easy_interval = next_interval(customData.easy.s * easyBonus)
-      hard_interval = Math.min(hard_interval, good_interval)
-      good_interval = Math.max(good_interval, hard_interval + 1);
-      easy_interval = Math.max(easy_interval, good_interval + 1);
-
-      if (states.hard.normal?.review) {
-        states.hard.normal.review.scheduledDays = hard_interval;
-      }
-      if (states.good.normal?.review) {
-        states.good.normal.review.scheduledDays = good_interval;
-      }
-      if (states.easy.normal?.review) {
-        states.easy.normal.review.scheduledDays = easy_interval;
-      }
+    let newCustomData = customData;
+    let scheduleDays = 0;
+    if (customData.stage == Stage.New) {
+      newCustomData = init_states(convertedScore);
+      scheduleDays =
+      convertedScore == Rating.Again ? 1 / 1440
+      : convertedScore == Rating.Hard ? 5 / 1440
+      : convertedScore == Rating.Good ? 10 / 1440
+      : convertedScore == Rating.Easy ? next_interval(newCustomData.stability)
+      : null!;
+    } else if (customData.stage == Stage.Review) {
+      const elapsedDays = (lastRep.date - history[history.length - 2].date) / (1000 * 60 * 60 * 24)
+      newCustomData = next_states(convertedScore, customData, elapsedDays)
+      let hardIvl = next_interval(customData.stability * hardInterval)
+      let goodIvl = Math.max(next_interval(newCustomData.stability), hardIvl+1)
+      let easyIvl = Math.max(next_interval(newCustomData.stability * easyBonus), goodIvl+1)
+      scheduleDays =
+      convertedScore == Rating.Again ? 1 / 1440
+      : convertedScore == Rating.Hard ? hardIvl
+      : convertedScore == Rating.Good ? goodIvl
+      : convertedScore == Rating.Easy ? easyIvl
+      : null!;
+    } else if (customData.stage == Stage.Learning || customData.stage == Stage.Relearning) {
+      let hardIvl = next_interval(newCustomData.stability)
+      let goodIvl = Math.max(next_interval(newCustomData.stability), hardIvl+1)
+      let easyIvl = Math.max(next_interval(newCustomData.stability * easyBonus), goodIvl+1)
+      scheduleDays = 
+      convertedScore == Rating.Again ? 5 / 1440
+      : convertedScore == Rating.Hard ? hardIvl
+      : convertedScore == Rating.Good ? goodIvl
+      : convertedScore == Rating.Easy ? easyIvl
+      : null!;
     }
+    newCustomData.stage = next_stage(newCustomData.stage, convertedScore);
+
+    const day = new Date(lastRep.date);
+    console.log(convertedScore ,scheduleDays);
+    day.setMinutes(day.getMinutes() + scheduleDays * 1440);
+    const time =  day.getTime();
+    console.log(convertedScore ,time);
+    return { nextDate: time, pluginData: newCustomData ? newCustomData : customData };
 
     function constrain_difficulty(difficulty: number) {
-      return Math.min(Math.max(difficulty.toFixed(2), 1), 10);
+      return Math.min(Math.max(+difficulty.toFixed(2), 1), 10);
     }
 
     function apply_fuzz(ivl: number) {
@@ -185,12 +130,14 @@ async function onActivate(plugin: ReactRNPlugin) {
     }
 
     function next_interval(stability: number) {
-      const new_interval = apply_fuzz(stability * intervalModifier);
+      // const new_interval = apply_fuzz(stability * intervalModifier)
+      // unsupport fuzz
+      const new_interval = stability * intervalModifier
       return Math.min(Math.max(Math.round(new_interval), 1), maximumInterval);
     }
 
-    function next_difficulty(d: number, rating: keyof typeof ratings) {
-      let next_d = d + w[4] * (ratings[rating] - 3);
+    function next_difficulty(d: number, rating: Rating) {
+      let next_d = d + w[4] * (rating - 3);
       return constrain_difficulty(mean_reversion(w[2], next_d));
     }
 
@@ -210,84 +157,74 @@ async function onActivate(plugin: ReactRNPlugin) {
             s, w[11]) * Math.exp((1 - r) * w[12])).toFixed(2);
     }
 
-    function init_states() {
-      customData.again.d = init_difficulty("again");
-      customData.again.s = init_stability("again");
-      customData.hard.d = init_difficulty("hard");
-      customData.hard.s = init_stability("hard");
-      customData.good.d = init_difficulty("good");
-      customData.good.s = init_stability("good");
-      customData.easy.d = init_difficulty("easy");
-      customData.easy.s = init_stability("easy");
-    }
-
-    function create_init_custom_data(): CustomData {
+    function init_states(rating: Rating): CustomData {
       return {
-        again: {
-          d: init_difficulty("again"),
-          s: init_stability("again"),
-        },
-        hard: {
-          d: init_difficulty("hard"),
-          s: init_stability("hard"),
-        },
-        good: {
-          d: init_difficulty("good"),
-          s: init_stability("good"),
-        },
-        easy: {
-          d: init_difficulty("easy"),
-          s: init_stability("easy"),
-        }
+        difficulty: init_difficulty(rating),
+        stability: init_stability(rating),
+        stage: Stage.New
       }
     }
 
-    function init_difficulty(rating: keyof typeof ratings) {
-      return +constrain_difficulty(w[2] + w[3] * (ratings[rating] - 3)).toFixed(2);
+    function next_states(rating: Rating, last_states: CustomData, interval: number): CustomData {
+      const next_d = next_difficulty(last_states.difficulty, rating)
+      const retrievability = Math.exp(Math.log(0.9) * interval / last_states.stability)
+      let next_s
+      if (rating == Rating.Again) {
+          next_s = next_forget_stability(next_d, last_states.stability, retrievability)
+      } else {
+          next_s = next_recall_stability(next_d, last_states.stability, retrievability)
+      }
+      return {
+        difficulty: next_d,
+        stability: next_s,
+        stage: last_states.stage
+      }
     }
 
-    function init_stability(rating: keyof typeof ratings) {
-      return +Math.max(w[0] + w[1] * (ratings[rating] - 1), 0.1).toFixed(2);
+    function create_init_custom_data(history: RepetitionStatus[]): CustomData {
+      if (history.length == 1) {
+          return {
+            difficulty: 0,
+            stability: 0,
+            stage: Stage.New
+        }
+      }
+      return {
+        difficulty: 5,
+        stability: (lastRep.date - history[history.length - 2].date) / (1000 * 60 * 60 * 24),
+        stage: Stage.Review
+      }
     }
 
-    function convert_states() {
-      const scheduledDays = states.current.normal ? states.current.normal.review.scheduledDays : states.current.filtered.rescheduling.originalState.review.scheduledDays;
-      const easeFactor = states.current.normal ? states.current.normal.review.easeFactor : states.current.filtered.rescheduling.originalState.review.easeFactor;
-      const old_s = +Math.max(scheduledDays, 0.1).toFixed(2);
-      const old_d = constrain_difficulty(11 - (easeFactor - 1) / (Math.exp(w[6]) * Math.pow(old_s, w[7]) * (Math.exp(0.1 * w[8]) - 1)))
-        customData.again.d = old_d;
-      customData.again.s = old_s;
-      customData.hard.d = old_d;
-      customData.hard.s = old_s;
-      customData.good.d = old_d;
-      customData.good.s = old_s;
-      customData.easy.d = old_d;
-      customData.easy.s = old_s;
+    function init_difficulty(rating: Rating) {
+      return +constrain_difficulty(w[2] + w[3] * (rating - 2)).toFixed(2);
     }
 
-    function is_new() {
-      return history.length == 0;
+    function init_stability(rating: Rating) {
+      return +Math.max(w[0] + w[1] * rating, 0.1).toFixed(2);
     }
 
-    function is_learning() {
-      // TODO: currentIvl >= learning threshhold && < review threshhold
-      // return 
-    }
-
-    function is_review() {
-      // TODO: currentIvl >= review threshhold?
-      // return 
-    }
-
-    function is_empty() {
-      return customData.again.d == null
-        || customData.again.s == null
-        || customData.hard.d == null
-        || customData.hard.s == null
-        || customData.good.d == null
-        || customData.good.s == null
-        || customData.easy.d == null 
-        || customData.easy.s == null
+    function next_stage(current_stage: Stage, rating: Rating): Stage {
+      if (current_stage == Stage.New) {
+        if (rating == Rating.Again || rating == Rating.Hard || rating == Rating.Good) {
+          return Stage.Learning
+        } else {
+          return Stage.Review
+        }
+      } else if (current_stage == Stage.Learning || current_stage == Stage.Relearning) {
+        if (rating == Rating.Again) {
+          return current_stage
+        } else {
+          return Stage.Review
+        }
+      } else if (current_stage == Stage.Review) {
+        if (rating == Rating.Again) {
+          return Stage.Relearning
+        } else {
+          return Stage.Review
+        }
+      }
+      return current_stage
     }
   }
 }
