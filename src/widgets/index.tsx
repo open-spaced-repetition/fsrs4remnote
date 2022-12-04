@@ -22,6 +22,7 @@ interface CustomData {
   difficulty: number,
   stability: number,
   stage: Stage,
+  lastReview: number | Date,
 }
 
 
@@ -42,31 +43,28 @@ async function onActivate(plugin: ReactRNPlugin) {
   }) {
     const {history, schedulerParameters} = args;
     const lastRep = history[history.length - 1];
-    console.log(args)
+    
+    if (lastRep.score === QueueInteractionScore.TOO_EARLY) {
+      return null;
+    }
 
+    const revlogs = history.filter(status => status.score !== QueueInteractionScore.TOO_EARLY);
     const {
       [SchedulerParam.Weights]: weightsStr,
       [SchedulerParam.RequestRetention]: requestRetention,
       [SchedulerParam.MaximumInterval]: maximumInterval,
       [SchedulerParam.EasyBonus]: easyBonus,
       [SchedulerParam.HardInterval]: hardInterval,
-      [SchedulerParam.Fuzz]: enable_fuzz,
-      [SchedulerParam.AgainRating]: againRating,
-      [SchedulerParam.HardRating]: hardRating,
-      [SchedulerParam.GoodRating]: goodRating,
-      [SchedulerParam.EasyRating]: easyRating,
     } = schedulerParameters as SchedulerParameterTypes;
 
     const w = weightsStr.split(', ').map(x => Number(x));
     const intervalModifier = Math.log(requestRetention) / Math.log(0.9);
-    const fuzz_factor = Math.random();
 
     const customData: CustomData = {
-      ...history.length>1 && Object.hasOwn(history[history.length - 2], "pluginData")
-        ? history[history.length - 2].pluginData as CustomData
-        : create_init_custom_data(history)
+      ...revlogs.length>1 && Object.hasOwn(revlogs[revlogs.length - 2], "pluginData")
+        ? revlogs[revlogs.length - 2].pluginData as CustomData
+        : create_init_custom_data(revlogs)
     }
-    console.log(customData)
 
     const convertedScore =
       lastRep.score === QueueInteractionScore.AGAIN ? Rating.Again
@@ -86,7 +84,7 @@ async function onActivate(plugin: ReactRNPlugin) {
       : convertedScore == Rating.Easy ? next_interval(newCustomData.stability)
       : null!;
     } else if (customData.stage == Stage.Review) {
-      const elapsedDays = (lastRep.date - history[history.length - 2].date) / (1000 * 60 * 60 * 24)
+      const elapsedDays = (lastRep.date - customData.lastReview) / (1000 * 60 * 60 * 24)
       newCustomData = next_states(convertedScore, customData, elapsedDays)
       let hardIvl = next_interval(customData.stability * hardInterval)
       let goodIvl = Math.max(next_interval(newCustomData.stability), hardIvl+1)
@@ -111,22 +109,12 @@ async function onActivate(plugin: ReactRNPlugin) {
     newCustomData.stage = next_stage(newCustomData.stage, convertedScore);
 
     const day = new Date(lastRep.date);
-    console.log(convertedScore ,scheduleDays);
     day.setMinutes(day.getMinutes() + scheduleDays * 1440);
     const time =  day.getTime();
-    console.log(convertedScore ,time);
     return { nextDate: time, pluginData: newCustomData ? newCustomData : customData };
 
     function constrain_difficulty(difficulty: number) {
       return Math.min(Math.max(+difficulty.toFixed(2), 1), 10);
-    }
-
-    function apply_fuzz(ivl: number) {
-      if (!enable_fuzz || ivl < 2.5) return ivl;
-      ivl = Math.round(ivl);
-      const min_ivl = Math.max(2, Math.round(ivl * 0.95 - 1));
-      const max_ivl = Math.round(ivl * 1.05 + 1);
-      return Math.floor(fuzz_factor * (max_ivl - min_ivl + 1) + min_ivl);
     }
 
     function next_interval(stability: number) {
@@ -161,7 +149,8 @@ async function onActivate(plugin: ReactRNPlugin) {
       return {
         difficulty: init_difficulty(rating),
         stability: init_stability(rating),
-        stage: Stage.New
+        stage: Stage.New,
+        lastReview: lastRep.date,
       }
     }
 
@@ -177,22 +166,25 @@ async function onActivate(plugin: ReactRNPlugin) {
       return {
         difficulty: next_d,
         stability: next_s,
-        stage: last_states.stage
+        stage: last_states.stage,
+        lastReview: lastRep.date,
       }
     }
 
-    function create_init_custom_data(history: RepetitionStatus[]): CustomData {
-      if (history.length == 1) {
+    function create_init_custom_data(revlogs: RepetitionStatus[]): CustomData {
+      if (revlogs.length == 1) {
           return {
             difficulty: 0,
             stability: 0,
-            stage: Stage.New
+            stage: Stage.New,
+            lastReview: lastRep.date,
         }
       }
       return {
         difficulty: 5,
-        stability: (lastRep.date - history[history.length - 2].date) / (1000 * 60 * 60 * 24),
-        stage: Stage.Review
+        stability: (lastRep.date - revlogs[revlogs.length - 2].date) / (1000 * 60 * 60 * 24),
+        stage: Stage.Review,
+        lastReview: lastRep.date,
       }
     }
 
