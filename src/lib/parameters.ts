@@ -14,13 +14,6 @@ export const defaultParameters = {
       },
     ]
   },
-  [SchedulerParam.Fuzz]: {
-    id: SchedulerParam.Fuzz,
-    title: SchedulerParam.Fuzz,
-    defaultValue: true,
-    description: "When enabled this adds a small random delay to new intervals to prevent cards from sticking together and always coming up for review on the same day.",
-    type: 'boolean' as const,
-  },
   [SchedulerParam.RequestRetention]: {
     id: SchedulerParam.RequestRetention,
     title: SchedulerParam.RequestRetention,
@@ -72,71 +65,6 @@ export const defaultParameters = {
     title: SchedulerParam.HardInterval,
     defaultValue: 1.2,
     description: "",
-    type: 'number' as const,
-    validators: [
-      {
-        type: "gte" as const,
-        arg: 0,
-      },
-    ]
-  },
-  [SchedulerParam.AgainRating]: {
-    id: SchedulerParam.AgainRating,
-    title: SchedulerParam.AgainRating,
-    defaultValue: 1,
-    description: `The score used to calculate the next repetition interval when you press the "Again" answer button`,
-    type: 'number' as const,
-    validators: [
-      {
-        type: "gte" as const,
-        arg: 0,
-      },
-    ]
-  },
-  [SchedulerParam.HardRating]: {
-    id: SchedulerParam.HardRating,
-    title: SchedulerParam.HardRating,
-    defaultValue: 2,
-    description: `The score used to calculate the next repetition interval when you press the "Hard" answer button`,
-    type: 'number' as const,
-    validators: [
-      {
-        type: "gte" as const,
-        arg: 0,
-      },
-    ]
-  },
-  [SchedulerParam.GoodRating]: {
-    id: SchedulerParam.GoodRating,
-    title: SchedulerParam.GoodRating,
-    defaultValue: 3,
-    description: `The score used to calculate the next repetition interval when you press the "Good" answer button`,
-    type: 'number' as const,
-    validators: [
-      {
-        type: "gte" as const,
-        arg: 0,
-      },
-    ]
-  },
-  [SchedulerParam.EasyRating]: {
-    id: SchedulerParam.EasyRating,
-    title: SchedulerParam.EasyRating,
-    defaultValue: 4,
-    description: `The score used to calculate the next repetition interval when you press the "Easy" answer button`,
-    type: 'number' as const,
-    validators: [
-      {
-        type: "gte" as const,
-        arg: 0,
-      },
-    ]
-  },
-  [SchedulerParam.EasyRating]: {
-    id: SchedulerParam.EasyRating,
-    title: SchedulerParam.EasyRating,
-    defaultValue: 4,
-    description: `The score used to calculate the next repetition interval when you press the "Easy" answer button`,
     type: 'number' as const,
     validators: [
       {
