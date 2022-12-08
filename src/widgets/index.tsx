@@ -45,7 +45,7 @@ async function onActivate(plugin: ReactRNPlugin) {
     const lastRep = history[history.length - 1];
     
     if (lastRep.score === QueueInteractionScore.TOO_EARLY) {
-      return null;
+      return { nextDate: new Date(Date.now() + 60 * 60 * 1000).getTime() };
     }
 
     const revlogs = history.filter(status => status.score !== QueueInteractionScore.TOO_EARLY);
