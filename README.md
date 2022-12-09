@@ -1,12 +1,12 @@
 # FSRS4RemNote
 
-FSRS4RemNote is a custom scheduler plugin for RemNote implementing the Free Spaced Repetition Scheduler. FSRS4RemNote consists of two main parts: scheduler and optimizer.
+FSRS4RemNote is a custom scheduler plugin for RemNote implementing the Free Spaced Repetition Scheduler. FSRS is based on the [DSR](https://supermemo.guru/wiki/Two_components_of_memory) (Difficulty, Stability, Retrievability) model proposed by [Piotr Wozniak](https://supermemo.guru/wiki/Piotr_Wozniak), the author of SuperMemo. FSRS is improved with the DHP (Difficulty, Half-life, Probability of recall) model introduced in the paper: [A Stochastic Shortest Path Algorithm for Optimizing Spaced Repetition Scheduling](https://www.maimemo.com/paper/).
 
-The scheduler is based on a variant of the DSR (Difficulty, Stability, Retrievability) model, which is used to predict memory states. The scheduler aims to achieve the requested retention for each card and each review.
+FSRS4RemNote consists of two main parts: scheduler and optimizer.
+
+The scheduler is based on a variant of the DSR  model, which is used to predict memory states. The scheduler aims to achieve the requested retention for each card and each review.
 
 The optimizer applies *Maximum Likelihood Estimation* and *Backpropagation Through Time* to estimate the stability of memory and learn the laws of memory from time-series review logs.
-
-For more detail on the mechanism of the FSRS algorithm, please see this paper: [A Stochastic Shortest Path Algorithm for Optimizing Spaced Repetition Scheduling](https://www.maimemo.com/paper/).
 
 ## Usage
 
@@ -17,9 +17,24 @@ For more detail on the mechanism of the FSRS algorithm, please see this paper: [
 
 ## FAQ
 
+### What does the 'Free' mean in the name?
+
+- The algorithm (FSRS) supports reviewing in advance or delay. It's free for users to decide the time of review. And it will adapt to the user's memory.
+- Meanwhile, spaced repetition is one essential technology to achieve free learning.
+- FSRS runs entirely locally and has no risk under others' control.
+
 ### How does FSRS Calculate the next review date?
 
-- The FSRS4Anki scheduler will calculate memory states based on your rating and the DSR model of memory (Difficulty, Stability, Retrievability). The scheduled date is based on memory states which get updated with each repetition and the custom parameters you set in the Custom Scheduler settings. The DSR model uses thirteen parameters and six equations to describe memory dynamics during spaced repetition practice. For more details, see [Free Spaced Repetition Scheduler](https://github.com/open-spaced-repetition/fsrs4anki/wiki/Free-Spaced-Repetition-Scheduler).
+- The FSRS4Anki scheduler will calculate memory states based on your rating and the DSR model of memory (Difficulty, Stability, Retrievability). The scheduled date is based on memory states which get updated with each repetition and the custom parameters you set in the Custom Scheduler settings. 
+- The DSR model uses thirteen parameters and six equations to describe memory dynamics during spaced repetition practice. For more details, see [Free Spaced Repetition Scheduler](https://github.com/open-spaced-repetition/fsrs4anki/wiki/Free-Spaced-Repetition-Scheduler).
+- The model considers three variables that affect memory: difficulty, stability, and retrievability.
+  - Difficulty refers to how hard it is to maintain a memory of something; the higher the difficulty, the harder it is to increase its stability and maintain it long term.
+  - Stability refers to the storage strength of memory; the higher it is, the slower it is forgotten.
+  - Retrievability refers to memory's retrieval strength; the lower it is, the higher the probability that the memory will be forgotten.
+- In the model, the following memory laws are considered:
+  - The more complex the memorized material, the lower the stability increase.
+  - The higher the stability, the lower the stability increase (also known as [stabilization decay](https://supermemo.guru/wiki/Stabilization_decay))
+  - The lower the retrievability, the higher the stability increase (also known as [stabilization curve](https://supermemo.guru/wiki/Stabilization_curve))
 
 ### What about cards with long repetition histories using a different scheduler? Do I have to start from scratch?
 
