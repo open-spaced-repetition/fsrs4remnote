@@ -48,7 +48,7 @@ async function onActivate(plugin: ReactRNPlugin) {
       return { nextDate: new Date(Date.now() + 60 * 60 * 1000).getTime() };
     }
 
-    const revlogs = history.filter(status => status.score !== QueueInteractionScore.TOO_EARLY);
+    const revlogs = history.filter(status => status.score !== QueueInteractionScore.TOO_EARLY && status.score !== QueueInteractionScore.VIEWED_AS_LEECH);
     const {
       [SchedulerParam.Weights]: weightsStr,
       [SchedulerParam.RequestRetention]: requestRetention,
@@ -84,7 +84,7 @@ async function onActivate(plugin: ReactRNPlugin) {
       : convertedScore == Rating.Easy ? next_interval(newCustomData.stability)
       : null!;
     } else if (customData.stage == Stage.Review) {
-      const elapsedDays = (lastRep.date - customData.lastReview) / (1000 * 60 * 60 * 24)
+      const elapsedDays = (new Date(lastRep.date).getTime() - new Date(customData.lastReview).getTime()) / (1000 * 60 * 60 * 24)
       newCustomData = next_states(convertedScore, customData, elapsedDays)
       let hardIvl = next_interval(customData.stability * hardInterval)
       let goodIvl = Math.max(next_interval(newCustomData.stability), hardIvl+1)
@@ -182,7 +182,7 @@ async function onActivate(plugin: ReactRNPlugin) {
       }
       return {
         difficulty: 5,
-        stability: (lastRep.date - revlogs[revlogs.length - 2].date) / (1000 * 60 * 60 * 24),
+        stability: (new Date(lastRep.date).getTime() - new Date(revlogs[revlogs.length - 2].date).getTime()) / (1000 * 60 * 60 * 24),
         stage: Stage.Review,
         lastReview: lastRep.date,
       }
