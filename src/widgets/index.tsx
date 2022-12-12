@@ -118,7 +118,7 @@ async function onActivate(plugin: ReactRNPlugin) {
 
     const day = new Date(lastRep.date);
     day.setMinutes(day.getMinutes() + scheduleDays * 1440);
-    const time =  day.getTime();
+    const time = day.getTime();
     return { nextDate: time, pluginData: newCustomData ? newCustomData : customData };
 
     function constrain_difficulty(difficulty: number) {
@@ -190,9 +190,9 @@ async function onActivate(plugin: ReactRNPlugin) {
       }
       return {
         difficulty: 5,
-        stability: (new Date(lastRep.date).getTime() - new Date(revlogs[revlogs.length - 2].date).getTime()) / (1000 * 60 * 60 * 24),
+        stability: (new Date(lastRep.scheduled).getTime() - new Date(revlogs[revlogs.length - 2].date).getTime()) / (1000 * 60 * 60 * 24),
         stage: Stage.Review,
-        lastReview: lastRep.date,
+        lastReview: revlogs[revlogs.length - 2].date,
       }
     }
 
