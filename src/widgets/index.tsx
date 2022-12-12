@@ -60,8 +60,16 @@ async function onActivate(plugin: ReactRNPlugin) {
     const w = weightsStr.split(', ').map(x => Number(x));
     const intervalModifier = Math.log(requestRetention) / Math.log(0.9);
 
+    const validateCustomData = (r: RepetitionStatus) => {
+      return !!r.pluginData
+        && (r.pluginData as CustomData).stage != null
+        && (r.pluginData as CustomData).stability != null
+        && (r.pluginData as CustomData).lastReview != null
+        && (r.pluginData as CustomData).difficulty != null
+    }
+
     const customData: CustomData = {
-      ...revlogs.length>1 && Object.hasOwn(revlogs[revlogs.length - 2], "pluginData")
+      ...revlogs.length >1 && validateCustomData(revlogs[revlogs.length - 2])
         ? revlogs[revlogs.length - 2].pluginData as CustomData
         : create_init_custom_data(revlogs)
     }
