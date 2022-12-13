@@ -119,6 +119,7 @@ async function onActivate(plugin: ReactRNPlugin) {
     const day = new Date(lastRep.date);
     day.setMinutes(day.getMinutes() + scheduleDays * 1440);
     const time = day.getTime();
+    console.log(convertedScore, history, customData, newCustomData, scheduleDays)
     return { nextDate: time, pluginData: newCustomData ? newCustomData : customData };
 
     function constrain_difficulty(difficulty: number) {
@@ -180,7 +181,7 @@ async function onActivate(plugin: ReactRNPlugin) {
     }
 
     function create_init_custom_data(revlogs: RepetitionStatus[]): CustomData {
-      if (revlogs.length == 1) {
+      if (revlogs.length == 1 || (new Date(lastRep.scheduled).getTime() - new Date(revlogs[revlogs.length - 2].date).getTime()) / (1000 * 60 * 60 * 24) <= 1) {
           return {
             difficulty: 0,
             stability: 0,
