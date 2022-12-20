@@ -44,7 +44,7 @@ async function onActivate(plugin: ReactRNPlugin) {
     const {history, schedulerParameters} = args;
     const lastRep = history[history.length - 1];
     
-    if (lastRep.score === QueueInteractionScore.TOO_EARLY) {
+    if (lastRep.score === QueueInteractionScore.TOO_EARLY || lastRep.score === QueueInteractionScore.VIEWED_AS_LEECH) {
       return { nextDate: new Date(Date.now() + 60 * 60 * 1000).getTime() };
     }
 
