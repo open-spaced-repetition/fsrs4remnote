@@ -31,6 +31,13 @@ export const defaultParameters = {
       }
     ]
   },
+  [SchedulerParam.EnableFuzz]: {
+    id: SchedulerParam.EnableFuzz,
+    title: SchedulerParam.EnableFuzz,
+    defaultValue: true,
+    description: "When enabled this adds a small random delay to new intervals to prevent cards from sticking together and always coming up for review on the same day.",
+    type: 'boolean' as const,
+  },
   [SchedulerParam.MaximumInterval]: {
     id: SchedulerParam.MaximumInterval,
     title: SchedulerParam.MaximumInterval,
