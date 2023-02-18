@@ -3,6 +3,8 @@ import '../style.css';
 import '../App.css';
 import { defaultParameters, SchedulerParameterTypes } from '../lib/parameters';
 import {SchedulerParam} from '../lib/consts';
+import 'seedrandom';
+import seedrandom from 'seedrandom';
 
 enum Rating {
   Again = 0,
@@ -40,9 +42,11 @@ async function onActivate(plugin: ReactRNPlugin) {
   async function getNextSpacingDate(args: {
     history: RepetitionStatus[],
     schedulerParameters: Record<string, unknown>,
+    cardId: string | undefined,
   }) {
-    const {history, schedulerParameters} = args;
+    const {history, schedulerParameters, cardId} = args;
     const lastRep = history[history.length - 1];
+    const seed = cardId ? cardId + String(history.length) : String(history.length);
     
     if (lastRep.score === QueueInteractionScore.TOO_EARLY || lastRep.score === QueueInteractionScore.VIEWED_AS_LEECH) {
       return { nextDate: new Date(Date.now() + 60 * 60 * 1000).getTime() };
@@ -52,6 +56,7 @@ async function onActivate(plugin: ReactRNPlugin) {
     const {
       [SchedulerParam.Weights]: weightsStr,
       [SchedulerParam.RequestRetention]: requestRetention,
+      [SchedulerParam.EnableFuzz]: enableFuzz,
       [SchedulerParam.MaximumInterval]: maximumInterval,
       [SchedulerParam.EasyBonus]: easyBonus,
       [SchedulerParam.HardInterval]: hardInterval,
@@ -127,10 +132,18 @@ async function onActivate(plugin: ReactRNPlugin) {
     }
 
     function next_interval(stability: number) {
-      // const new_interval = apply_fuzz(stability * intervalModifier)
-      // unsupport fuzz
-      const new_interval = stability * intervalModifier
+      const new_interval = apply_fuzz(stability * intervalModifier)
       return Math.min(Math.max(Math.round(new_interval), 1), maximumInterval);
+    }
+
+    function apply_fuzz(ivl: number) {
+      const generator = seedrandom(seed);
+      const fuzz_factor = generator();
+      if (!enableFuzz || ivl < 2.5) return ivl;
+      ivl = Math.round(ivl);
+      const min_ivl = Math.max(2, Math.round(ivl * 0.95 - 1));
+      const max_ivl = Math.round(ivl * 1.05 + 1);
+      return Math.floor(fuzz_factor * (max_ivl - min_ivl + 1) + min_ivl);
     }
 
     function next_difficulty(d: number, rating: Rating) {

@@ -6,8 +6,8 @@
   "repoUrl": "https://github.com/open-spaced-repetition/fsrs4remnote",
   "version": {
     "major": 0,
-    "minor": 0,
-    "patch": 6
+    "minor": 1,
+    "patch": 0
   },
   "theme": [],
   "enableOnMobile": true,
