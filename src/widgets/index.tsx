@@ -147,7 +147,7 @@ async function onActivate(plugin: ReactRNPlugin) {
     }
 
     function next_difficulty(d: number, rating: Rating) {
-      let next_d = d + w[4] * (rating - 3);
+      let next_d = d + w[4] * (rating - 2);
       return constrain_difficulty(mean_reversion(w[2], next_d));
     }
 
