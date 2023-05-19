@@ -94,7 +94,7 @@ async function onActivate(plugin: ReactRNPlugin) {
       convertedScore == Rating.Again ? 1 / 1440
       : convertedScore == Rating.Hard ? 5 / 1440
       : convertedScore == Rating.Good ? 10 / 1440
-      : convertedScore == Rating.Easy ? next_interval(newCustomData.stability)
+      : convertedScore == Rating.Easy ? next_interval(newCustomData.stability * easyBonus)
       : null!;
     } else if (customData.stage == Stage.Review) {
       const elapsedDays = (new Date(lastRep.date).getTime() - new Date(customData.lastReview).getTime()) / (1000 * 60 * 60 * 24)
@@ -109,12 +109,11 @@ async function onActivate(plugin: ReactRNPlugin) {
       : convertedScore == Rating.Easy ? easyIvl
       : null!;
     } else if (customData.stage == Stage.Learning || customData.stage == Stage.Relearning) {
-      let hardIvl = next_interval(newCustomData.stability)
-      let goodIvl = Math.max(next_interval(newCustomData.stability), hardIvl+1)
+      let goodIvl = next_interval(newCustomData.stability)
       let easyIvl = Math.max(next_interval(newCustomData.stability * easyBonus), goodIvl+1)
       scheduleDays = 
       convertedScore == Rating.Again ? 5 / 1440
-      : convertedScore == Rating.Hard ? hardIvl
+      : convertedScore == Rating.Hard ? 10 / 1440
       : convertedScore == Rating.Good ? goodIvl
       : convertedScore == Rating.Easy ? easyIvl
       : null!;
@@ -124,7 +123,7 @@ async function onActivate(plugin: ReactRNPlugin) {
     const day = new Date(lastRep.date);
     day.setMinutes(day.getMinutes() + scheduleDays * 1440);
     const time = day.getTime();
-    console.log(convertedScore, history, customData, newCustomData, scheduleDays)
+    console.log(convertedScore, history, customData, newCustomData, scheduleDays, lastRep.scheduled)
     return { nextDate: time, pluginData: newCustomData ? newCustomData : customData };
 
     function constrain_difficulty(difficulty: number) {
@@ -226,7 +225,7 @@ async function onActivate(plugin: ReactRNPlugin) {
           return Stage.Review
         }
       } else if (current_stage == Stage.Learning || current_stage == Stage.Relearning) {
-        if (rating == Rating.Again) {
+        if (rating == Rating.Again || rating == Rating.Hard) {
           return current_stage
         } else {
           return Stage.Review
