@@ -107,7 +107,7 @@ async function onActivate(plugin: ReactRNPlugin) {
           : convertedScore == Rating.Good
           ? 10 / 1440
           : convertedScore == Rating.Easy
-          ? next_interval(newCustomData.stability)
+          ? next_interval(newCustomData.stability * easyBonus)
           : null!;
     } else if (customData.stage == Stage.Review) {
       const elapsedDays =
@@ -128,14 +128,13 @@ async function onActivate(plugin: ReactRNPlugin) {
           ? easyIvl
           : null!;
     } else if (customData.stage == Stage.Learning || customData.stage == Stage.Relearning) {
-      let hardIvl = next_interval(newCustomData.stability);
-      let goodIvl = Math.max(next_interval(newCustomData.stability), hardIvl + 1);
-      let easyIvl = Math.max(next_interval(newCustomData.stability * easyBonus), goodIvl + 1);
+      let goodIvl = next_interval(newCustomData.stability)
+      let easyIvl = Math.max(next_interval(newCustomData.stability * easyBonus), goodIvl+1)
       scheduleDays =
         convertedScore == Rating.Again
           ? 5 / 1440
           : convertedScore == Rating.Hard
-          ? hardIvl
+          ? 10 / 1440
           : convertedScore == Rating.Good
           ? goodIvl
           : convertedScore == Rating.Easy
@@ -147,7 +146,7 @@ async function onActivate(plugin: ReactRNPlugin) {
     const day = new Date(lastRep.date);
     day.setMinutes(day.getMinutes() + scheduleDays * 1440);
     const time = day.getTime();
-    console.log(convertedScore, history, customData, newCustomData, scheduleDays);
+    console.log(convertedScore, history, customData, newCustomData, scheduleDays, lastRep.scheduled)
     return { nextDate: time, pluginData: newCustomData ? newCustomData : customData };
 
     function constrain_difficulty(difficulty: number) {
@@ -170,7 +169,7 @@ async function onActivate(plugin: ReactRNPlugin) {
     }
 
     function next_difficulty(d: number, rating: Rating) {
-      let next_d = d + w[4] * (rating - 3);
+      let next_d = d + w[4] * (rating - 2);
       return constrain_difficulty(mean_reversion(w[2], next_d));
     }
 
@@ -259,8 +258,8 @@ async function onActivate(plugin: ReactRNPlugin) {
           return Stage.Review;
         }
       } else if (current_stage == Stage.Learning || current_stage == Stage.Relearning) {
-        if (rating == Rating.Again) {
-          return current_stage;
+        if (rating == Rating.Again || rating == Rating.Hard) {
+          return current_stage
         } else {
           return Stage.Review;
         }
