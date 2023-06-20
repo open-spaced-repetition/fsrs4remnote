@@ -5,6 +5,7 @@ import {
   filterUnusedQueueInteractionScores,
   getRepetitionHistoryWithoutResets,
 } from './scoreConversion';
+import { CustomData, validateCustomData } from './validation';
 
 interface RemNoteRepetitionStatusWithCard extends RepetitionStatus {
   card: Card;
@@ -23,23 +24,22 @@ interface AnkiRevlogRow {
   type: number;
 }
 
-function convertRepetitionStatusToRevlogRow(
-  status: RemNoteRepetitionStatusWithCard
-): AnkiRevlogRow {
-  const cid = status.card.createdAt;
-  const id = (status.date instanceof Date ? status.date : new Date(status.date)).valueOf();
+function convertRepetitionStatusToRevlogRow(rep: RemNoteRepetitionStatusWithCard): AnkiRevlogRow {
+  const cid = rep.card.createdAt;
+  const id = (rep.date instanceof Date ? rep.date : new Date(rep.date)).valueOf();
   const usn = -1;
-  const r = convertRemNoteScoreToAnkiRating(status.score);
+  const r = convertRemNoteScoreToAnkiRating(rep.score);
   // current interval in days
   const ivl =
-    status.card.nextRepetitionTime! -
-    (status.card.lastRepetitionTime || status.card.createdAt) / 1000 / 60 / 60 / 24;
+    rep.card.nextRepetitionTime! -
+    (rep.card.lastRepetitionTime || rep.card.createdAt) / 1000 / 60 / 60 / 24;
   // unused
   const lastIvl = 0;
-  // TODO: not sure what this is
+  const time = rep.responseTime || 0;
+  // unused
   const factor = 0;
-  const time = status.responseTime || 0;
-  // TODO: not sure what this is
+  // type -- 0=learn, 1=review, 2=relearn, 3=cram
+  //
   const type = 0;
 
   return { id, cid, usn, r, ivl, lastIvl, factor, time, type };

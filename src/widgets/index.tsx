@@ -17,20 +17,7 @@ import {
   Rating,
 } from '../lib/scoreConversion';
 import { createRevlog } from '../lib/createRevlog';
-
-enum Stage {
-  New = 0,
-  Learning,
-  Review,
-  Relearning,
-}
-
-interface CustomData {
-  difficulty: number;
-  stability: number;
-  stage: Stage;
-  lastReview: number | Date;
-}
+import { CustomData, Stage, validateCustomData } from '../lib/validation';
 
 async function onActivate(plugin: ReactRNPlugin) {
   await plugin.scheduler.registerCustomScheduler('FSRS4RemNote', Object.values(defaultParameters));
@@ -55,12 +42,12 @@ async function onActivate(plugin: ReactRNPlugin) {
     cardId: string | undefined;
   }) {
     const { history, schedulerParameters, cardId } = args;
-    const lastRep = history[history.length - 1];
+    const currentRep = history[history.length - 1];
     const seed = cardId ? cardId + String(history.length) : String(history.length);
 
     if (
-      lastRep.score === QueueInteractionScore.TOO_EARLY ||
-      lastRep.score === QueueInteractionScore.VIEWED_AS_LEECH
+      currentRep.score === QueueInteractionScore.TOO_EARLY ||
+      currentRep.score === QueueInteractionScore.VIEWED_AS_LEECH
     ) {
       return { nextDate: new Date(Date.now() + 60 * 60 * 1000).getTime() };
     }
@@ -78,23 +65,13 @@ async function onActivate(plugin: ReactRNPlugin) {
     const w = weightsStr.split(', ').map((x) => Number(x));
     const intervalModifier = Math.log(requestRetention) / Math.log(0.9);
 
-    const validateCustomData = (r: RepetitionStatus) => {
-      return (
-        !!r.pluginData &&
-        (r.pluginData as CustomData).stage != null &&
-        (r.pluginData as CustomData).stability != null &&
-        (r.pluginData as CustomData).lastReview != null &&
-        (r.pluginData as CustomData).difficulty != null
-      );
-    };
-
     const customData: CustomData = {
       ...(revlogs.length > 1 && validateCustomData(revlogs[revlogs.length - 2])
         ? (revlogs[revlogs.length - 2].pluginData as CustomData)
         : create_init_custom_data(revlogs)),
     };
 
-    const convertedScore = convertRemNoteScoreToAnkiRating(lastRep.score);
+    const convertedScore = convertRemNoteScoreToAnkiRating(currentRep.score);
     let newCustomData = customData;
     let scheduleDays = 0;
     if (customData.stage == Stage.New) {
@@ -111,7 +88,7 @@ async function onActivate(plugin: ReactRNPlugin) {
           : null!;
     } else if (customData.stage == Stage.Review) {
       const elapsedDays =
-        (new Date(lastRep.date).getTime() - new Date(customData.lastReview).getTime()) /
+        (new Date(currentRep.date).getTime() - new Date(customData.lastReview).getTime()) /
         (1000 * 60 * 60 * 24);
       newCustomData = next_states(convertedScore, customData, elapsedDays);
       let hardIvl = next_interval(customData.stability * hardInterval);
@@ -143,7 +120,7 @@ async function onActivate(plugin: ReactRNPlugin) {
     }
     newCustomData.stage = next_stage(newCustomData.stage, convertedScore);
 
-    const day = new Date(lastRep.date);
+    const day = new Date(currentRep.date);
     day.setMinutes(day.getMinutes() + scheduleDays * 1440);
     const time = day.getTime();
     console.log(convertedScore, history, customData, newCustomData, scheduleDays, lastRep.scheduled)
@@ -195,7 +172,7 @@ async function onActivate(plugin: ReactRNPlugin) {
         difficulty: init_difficulty(rating),
         stability: init_stability(rating),
         stage: Stage.New,
-        lastReview: lastRep.date,
+        lastReview: currentRep.date,
       };
     }
 
@@ -212,14 +189,14 @@ async function onActivate(plugin: ReactRNPlugin) {
         difficulty: next_d,
         stability: next_s,
         stage: last_states.stage,
-        lastReview: lastRep.date,
+        lastReview: currentRep.date,
       };
     }
 
     function create_init_custom_data(revlogs: RepetitionStatus[]): CustomData {
       if (
         revlogs.length == 1 ||
-        (new Date(lastRep.scheduled).getTime() -
+        (new Date(currentRep.scheduled).getTime() -
           new Date(revlogs[revlogs.length - 2].date).getTime()) /
           (1000 * 60 * 60 * 24) <=
           1
@@ -228,13 +205,13 @@ async function onActivate(plugin: ReactRNPlugin) {
           difficulty: 0,
           stability: 0,
           stage: Stage.New,
-          lastReview: lastRep.date,
+          lastReview: currentRep.date,
         };
       }
       return {
         difficulty: 5,
         stability:
-          (new Date(lastRep.scheduled).getTime() -
+          (new Date(currentRep.scheduled).getTime() -
             new Date(revlogs[revlogs.length - 2].date).getTime()) /
           (1000 * 60 * 60 * 24),
         stage: Stage.Review,
