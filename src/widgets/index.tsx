@@ -19,6 +19,35 @@ import {
 import { createRevlog } from '../lib/createRevlog';
 import { CustomData, Stage, validateCustomData } from '../lib/validation';
 
+export function create_init_custom_data(
+  currentRep: RepetitionStatus,
+  revlogs: RepetitionStatus[]
+): CustomData {
+  if (
+    revlogs.length == 1 ||
+    (new Date(currentRep.scheduled!).getTime() -
+      new Date(revlogs[revlogs.length - 2].date).getTime()) /
+      (1000 * 60 * 60 * 24) <=
+      1
+  ) {
+    return {
+      difficulty: 0,
+      stability: 0,
+      stage: Stage.New,
+      lastReview: currentRep.date,
+    };
+  }
+  return {
+    difficulty: 5,
+    stability:
+      (new Date(currentRep.scheduled!).getTime() -
+        new Date(revlogs[revlogs.length - 2].date).getTime()) /
+      (1000 * 60 * 60 * 24),
+    stage: Stage.Review,
+    lastReview: revlogs[revlogs.length - 2].date,
+  };
+}
+
 async function onActivate(plugin: ReactRNPlugin) {
   await plugin.scheduler.registerCustomScheduler('FSRS4RemNote', Object.values(defaultParameters));
 
@@ -66,9 +95,9 @@ async function onActivate(plugin: ReactRNPlugin) {
     const intervalModifier = Math.log(requestRetention) / Math.log(0.9);
 
     const customData: CustomData = {
-      ...(revlogs.length > 1 && validateCustomData(revlogs[revlogs.length - 2])
+      ...(revlogs.length > 1 && validateCustomData(revlogs[revlogs.length - 2].pluginData)
         ? (revlogs[revlogs.length - 2].pluginData as CustomData)
-        : create_init_custom_data(revlogs)),
+        : create_init_custom_data(currentRep, revlogs)),
     };
 
     const convertedScore = convertRemNoteScoreToAnkiRating(currentRep.score);
@@ -105,8 +134,8 @@ async function onActivate(plugin: ReactRNPlugin) {
           ? easyIvl
           : null!;
     } else if (customData.stage == Stage.Learning || customData.stage == Stage.Relearning) {
-      let goodIvl = next_interval(newCustomData.stability)
-      let easyIvl = Math.max(next_interval(newCustomData.stability * easyBonus), goodIvl+1)
+      let goodIvl = next_interval(newCustomData.stability);
+      let easyIvl = Math.max(next_interval(newCustomData.stability * easyBonus), goodIvl + 1);
       scheduleDays =
         convertedScore == Rating.Again
           ? 5 / 1440
@@ -123,7 +152,14 @@ async function onActivate(plugin: ReactRNPlugin) {
     const day = new Date(currentRep.date);
     day.setMinutes(day.getMinutes() + scheduleDays * 1440);
     const time = day.getTime();
-    console.log(convertedScore, history, customData, newCustomData, scheduleDays, lastRep.scheduled)
+    console.log(
+      convertedScore,
+      history,
+      customData,
+      newCustomData,
+      scheduleDays,
+      currentRep.scheduled
+    );
     return { nextDate: time, pluginData: newCustomData ? newCustomData : customData };
 
     function constrain_difficulty(difficulty: number) {
@@ -193,32 +229,6 @@ async function onActivate(plugin: ReactRNPlugin) {
       };
     }
 
-    function create_init_custom_data(revlogs: RepetitionStatus[]): CustomData {
-      if (
-        revlogs.length == 1 ||
-        (new Date(currentRep.scheduled).getTime() -
-          new Date(revlogs[revlogs.length - 2].date).getTime()) /
-          (1000 * 60 * 60 * 24) <=
-          1
-      ) {
-        return {
-          difficulty: 0,
-          stability: 0,
-          stage: Stage.New,
-          lastReview: currentRep.date,
-        };
-      }
-      return {
-        difficulty: 5,
-        stability:
-          (new Date(currentRep.scheduled).getTime() -
-            new Date(revlogs[revlogs.length - 2].date).getTime()) /
-          (1000 * 60 * 60 * 24),
-        stage: Stage.Review,
-        lastReview: revlogs[revlogs.length - 2].date,
-      };
-    }
-
     function init_difficulty(rating: Rating) {
       return +constrain_difficulty(w[2] + w[3] * (rating - 2)).toFixed(2);
     }
@@ -236,7 +246,7 @@ async function onActivate(plugin: ReactRNPlugin) {
         }
       } else if (current_stage == Stage.Learning || current_stage == Stage.Relearning) {
         if (rating == Rating.Again || rating == Rating.Hard) {
-          return current_stage
+          return current_stage;
         } else {
           return Stage.Review;
         }

@@ -1,12 +1,12 @@
 import { RepetitionStatus } from '@remnote/plugin-sdk';
 
-export const validateCustomData = (r: RepetitionStatus) => {
+export const validateCustomData = (data: Record<string, any> | undefined): data is CustomData => {
   return (
-    !!r.pluginData &&
-    (r.pluginData as CustomData).stage != null &&
-    (r.pluginData as CustomData).stability != null &&
-    (r.pluginData as CustomData).lastReview != null &&
-    (r.pluginData as CustomData).difficulty != null
+    !!data &&
+    (data as CustomData).stage != null &&
+    (data as CustomData).stability != null &&
+    (data as CustomData).lastReview != null &&
+    (data as CustomData).difficulty != null
   );
 };
 
