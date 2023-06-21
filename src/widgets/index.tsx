@@ -55,8 +55,16 @@ async function onActivate(plugin: ReactRNPlugin) {
     name: 'Create Revlog CSV',
     id: 'create-revlog-csv',
     action: async () => {
-      const log = await createRevlog(plugin);
-      console.log(log);
+      const revlog = await createRevlog(plugin);
+      console.log(revlog);
+      const blob = new Blob([revlog.join('\n')], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const downloadLink = document.createElement('a');
+      downloadLink.href = url;
+      downloadLink.download = 'remnote-revlog.csv';
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      URL.revokeObjectURL(url);
     },
   });
 
