@@ -1,7 +1,7 @@
 import { QueueInteractionScore, RepetitionStatus } from '@remnote/plugin-sdk';
 
 export enum Rating {
-  Again = 0,
+  Again = 1,
   Hard,
   Good,
   Easy,

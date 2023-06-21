@@ -182,7 +182,7 @@ async function onActivate(plugin: ReactRNPlugin) {
     }
 
     function next_difficulty(d: number, rating: Rating) {
-      let next_d = d + w[4] * (rating - 2);
+      let next_d = d + w[4] * (rating - 3);
       return constrain_difficulty(mean_reversion(w[2], next_d));
     }
 
@@ -230,11 +230,11 @@ async function onActivate(plugin: ReactRNPlugin) {
     }
 
     function init_difficulty(rating: Rating) {
-      return +constrain_difficulty(w[2] + w[3] * (rating - 2)).toFixed(2);
+      return +constrain_difficulty(w[2] + w[3] * (rating - 3)).toFixed(2);
     }
 
     function init_stability(rating: Rating) {
-      return +Math.max(w[0] + w[1] * rating, 0.1).toFixed(2);
+      return +Math.max(w[0] + w[1] * (rating - 1), 0.1).toFixed(2);
     }
 
     function next_stage(current_stage: Stage, rating: Rating): Stage {

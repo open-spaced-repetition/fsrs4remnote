@@ -16,12 +16,7 @@ interface RemNoteRepetition {
 interface AnkiRevlogRow {
   id: number;
   cid: number;
-  usn: number;
   r: number;
-  ivl: number;
-  // unused
-  lastIvl: number;
-  factor: number;
   time: number;
   type: number;
 }
@@ -33,16 +28,8 @@ function convertRepetitionStatusToRevlogRow(data: RemNoteRepetition): AnkiRevlog
   const id = (
     currentRep.date instanceof Date ? currentRep.date : new Date(currentRep.date)
   ).valueOf();
-  const usn = -1;
   const r = convertRemNoteScoreToAnkiRating(currentRep.score);
-  // current interval in days
-  const ivl =
-    card.nextRepetitionTime! - (card.lastRepetitionTime || card.createdAt) / 1000 / 60 / 60 / 24;
-  // unused
-  const lastIvl = 0;
   const time = currentRep.responseTime || 0;
-  // unused
-  const factor = 0;
   // type -- 0=learn, 1=review, 2=relearn, 3=cram
   const pluginData = currentRep.pluginData;
   let type = 0;
@@ -52,7 +39,7 @@ function convertRepetitionStatusToRevlogRow(data: RemNoteRepetition): AnkiRevlog
     type = create_init_custom_data(currentRep, data.revlog).stage;
   }
 
-  return { id, cid, usn, r, ivl, lastIvl, factor, time, type };
+  return { id, cid, r, time, type };
 }
 
 export async function createRevlog(plugin: RNPlugin): Promise<any[][]> {
@@ -76,14 +63,11 @@ export async function createRevlog(plugin: RNPlugin): Promise<any[][]> {
     return [
       revlog.id,
       revlog.cid,
-      revlog.usn,
       revlog.r,
-      revlog.ivl,
-      revlog.factor,
       revlog.time,
       revlog.type,
     ];
   });
-  const header = ['id', 'cid', 'usn', 'r', 'ivl', 'factor', 'time', 'type'];
+  const header = ['id', 'cid', 'r', 'time', 'type'];
   return [header, ...csvData];
 }
