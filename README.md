@@ -1,3 +1,7 @@
+# Archived in 2024-04-25
+
+This repository is archived and will be read-only, because FSRS has been integrated to RemNote 1.16 officially: [🎉 RemNote 1.16 – Ultimate Spaced Repetition! 🎉 | Changelog | RemNote](https://feedback.remnote.com/changelog/remnote-1-16-ultimate-spaced-repetition)
+
 # FSRS4RemNote
 
 FSRS4RemNote is a custom scheduler plugin for RemNote implementing the Free Spaced Repetition Scheduler. FSRS is based on the [DSR](https://supermemo.guru/wiki/Two_components_of_memory) (Difficulty, Stability, Retrievability) model proposed by [Piotr Wozniak](https://supermemo.guru/wiki/Piotr_Wozniak), the author of SuperMemo. FSRS is improved with the DHP (Difficulty, Half-life, Probability of recall) model introduced in the paper: [A Stochastic Shortest Path Algorithm for Optimizing Spaced Repetition Scheduling](https://www.maimemo.com/paper/).
